@@ -1,34 +1,32 @@
 'use client'
 import React, { useState } from 'react';
-import './login.css';
-import app from '../../config';
-import { getAuth, signInWithEmailAndPassword } from "firebase/auth";
+import './signup.css';
+import app from '../../../config';
+import { getAuth, createUserWithEmailAndPassword } from "firebase/auth";
 import { useRouter } from 'next/navigation';
-import Logo from './imgs/cookingcrew.png'
+import Logo from '../imgs/cookingcrew.png'
 
-
-// Initialize Firebase Auth if not already done
 const auth = getAuth(app);
 
-const Login: React.FC = () => {
+const Signup: React.FC = () => {
+  
+  // const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [email, setEmail] = useState('');
   const router = useRouter();
 
   const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    signInWithEmailAndPassword(auth, email, password)
+    createUserWithEmailAndPassword(auth, email, password)
     .then((userCredential) => {
-      // Signed in 
+      // Signed up 
       const user = userCredential.user;
-      console.log("signed in")
       router.push('/search');
       // ...
     })
     .catch((error) => {
-      console.log('error')
       const errorCode = error.code;
       const errorMessage = error.message;
+      // ..
     });
   };
 
@@ -37,12 +35,20 @@ const Login: React.FC = () => {
       <div className="logo">
         <div className="icon">
         <img src={Logo.src} alt="cooking crew Logo" className='icon' />
-          </div>
+        </div>
         <h1>Cooking Crew</h1>
       </div>
       <form onSubmit={handleLogin} className="login-form">
-      <input
-            id = 'email'
+        {/* <input
+          id = 'Username'
+          type="text"
+          placeholder="Username"
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+          required
+        /> */}
+        <input
+            id = "email"
             type="text"
             placeholder ="email"
             value={email}
@@ -50,20 +56,17 @@ const Login: React.FC = () => {
             required
         />
         <input
-          id = 'password'
-          type="text"
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-        />
-        <button type="submit">Login</button>
-        <center>
-          <p> or signup <a href="./signup"><u>here</u></a></p>
-        </center>
+              id = 'password'
+              type="text"
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+          />
+        <button type="submit">Create Account</button>
       </form>
     </div>
   );
 };
 
-export default Login;
+export default Signup;

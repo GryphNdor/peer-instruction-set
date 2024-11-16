@@ -3,6 +3,10 @@ import { Group, UnstyledButton, rem } from '@mantine/core'
 import { IconHome, IconZoom, IconUser, IconListCheck, IconDeviceTv } from '@tabler/icons-react'
 import React from 'react'
 import { useRouter, usePathname } from 'next/navigation'
+import app from '../../config';
+import { getAuth, createUserWithEmailAndPassword } from "firebase/auth";
+
+const auth = getAuth(app);
 
 export default function Nav() {
   const router = useRouter()
@@ -29,8 +33,8 @@ export default function Nav() {
       <UnstyledButton>
         <IconListCheck style={{ width: rem(30), height: rem(30), color: checkPath("/user") }} />
       </UnstyledButton>
-      <UnstyledButton>
-        <IconDeviceTv style={{ width: rem(30), height: rem(30), color: checkPath("/user") }} />
+      <UnstyledButton onClick={() => router.push('/rooms')}>
+        <IconDeviceTv style={{ width: rem(30), height: rem(30), color: checkPath("/rooms") }} />
       </UnstyledButton>
     </Group>
   )
