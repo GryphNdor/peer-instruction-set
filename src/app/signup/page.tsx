@@ -15,7 +15,8 @@ const Signup: React.FC = () => {
   const [email, setEmail] = useState('');
   const router = useRouter();
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleSignup = (e: React.FormEvent) => {
+    e.preventDefault();
     createUserWithEmailAndPassword(auth, email, password)
     .then((userCredential) => {
       // Signed up 
@@ -38,7 +39,7 @@ const Signup: React.FC = () => {
         </div>
         <h1>Cooking Crew</h1>
       </div>
-      <form onSubmit={handleLogin} className="login-form">
+      <form onSubmit={handleSignup} className="login-form">
         {/* <input
           id = 'Username'
           type="text"
