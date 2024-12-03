@@ -28,7 +28,7 @@ export default function RootLayout({
           <AppShell
             footer={{ height: "52" }}
           >
-            <AppShellMain p="md">
+            <AppShellMain p="md" mb="xl">
               {children}
             </AppShellMain>
             <AppShellFooter p="sm">
