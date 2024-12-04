@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { collection, addDoc } from "firebase/firestore";
 import Logo from '../imgs/cookingcrew.png'
 import { create } from 'domain';
-import storeUserData from '../firestore'
+import {storeUserData} from '../../../firestore'
 
 const auth = getAuth(app);
 
