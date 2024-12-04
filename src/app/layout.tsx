@@ -26,7 +26,7 @@ export default function RootLayout({
       <body>
         <MantineProvider>
           <AppShell
-            footer={{ height: "52" }}
+            footer={{ height: "45" }}
           >
             <AppShellMain p="md" mb="xl">
               {children}

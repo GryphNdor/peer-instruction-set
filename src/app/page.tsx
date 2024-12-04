@@ -1,15 +1,11 @@
 'use client'
 import db from "../config";
-import { Button, Container, Group, Stack, TextInput, Title } from "@mantine/core";
+import { Button, Container,  Stack, TextInput, Title, AspectRatio, SimpleGrid } from "@mantine/core";
 import { useEffect, useRef, useState } from "react";
-import { collection, getFirestore, doc, setDoc, addDoc, onSnapshot, getDoc, updateDoc } from "firebase/firestore"
+import { collection, doc, setDoc, addDoc, onSnapshot, getDoc, updateDoc } from "firebase/firestore"
+import { FilesetResolver, GestureRecognizer } from "@mediapipe/tasks-vision";
 
 export default function Home() {
-  const localStream = useRef<MediaStream | null>()
-  const remoteStream = useRef<MediaStream | null>()
-  const localVideo = useRef<HTMLVideoElement>(null)
-  const remoteVideo = useRef<HTMLVideoElement>(null)
-  const rtcConnectionRef = useRef<RTCPeerConnection | null>(null);
 
   const servers = {
     iceServers: [
@@ -19,32 +15,62 @@ export default function Home() {
     ],
     iceCandidatePoolSize: 10
   }
+
+  const localStream = useRef<MediaStream | null>()
+  const remoteStream = useRef<MediaStream | null>()
+  const localVideo = useRef<HTMLVideoElement>(null)
+  const remoteVideo = useRef<HTMLVideoElement>(null)
+  const rtcConnectionRef = useRef<RTCPeerConnection | null>(null);
+  const gestureDetectorRef = useRef<GestureRecognizer | null>()
+
   const [callInput, setCallInput] = useState("")
+  const [gesture, setGesture] = useState("")
+  const [calling, setCalling] = useState(false)
+  const [animId, setAnimId] = useState(0)
+
 
   useEffect(() => {
-    rtcConnectionRef.current = createPeerConnection()
+    // TODO:
+    // initializegestureDetector()
+    initalizeStreams()
+  }, [])
 
+  /*
+  +-----------------------------+
+  |                             |
+  | WebRTC Peer Connection Code |
+  |                             |
+  +-----------------------------+
+  */
+
+  const initalizeStreams = async () => {
+    rtcConnectionRef.current = createPeerConnection()
     if (typeof window !== 'undefined') { 
-      navigator.mediaDevices.getUserMedia({
+      localStream.current = await navigator.mediaDevices.getUserMedia({
         video: true,
         audio: true,
-      }).then((stream) => {
-        localStream.current = stream
-        localStream.current.getTracks().forEach((track) => {
-          rtcConnectionRef.current!.addTrack(track, localStream.current!)
-        })
-        localVideo.current!.srcObject = localStream.current 
-        remoteStream.current = new MediaStream()
-        rtcConnectionRef.current!.ontrack = handleRemoteCaller
-        remoteVideo.current!.srcObject = remoteStream.current
       })
+      localStream.current.getTracks().forEach((track) => {
+        rtcConnectionRef.current!.addTrack(track, localStream.current!)
+      })
+      localVideo.current!.srcObject = localStream.current 
+      remoteStream.current = new MediaStream()
+      rtcConnectionRef.current!.ontrack = handleRemoteCaller
+      remoteVideo.current!.srcObject = remoteStream.current
+      
     }
-  }, [])
+    localVideo.current!.addEventListener('loadeddata', () => {
+        console.log('Video loaded, starting detection');
+        predict();
+    });
+  }
+
 
   const createPeerConnection = () => {
     const pc = new RTCPeerConnection(servers)
     return pc
   }
+
 
   const handleRemoteCaller = (event: RTCTrackEvent) => {
     console.log(event)
@@ -54,19 +80,30 @@ export default function Home() {
   }
 
 
-  const deactivateCamera = async () => {
+  const hangUp = async () => {
     localStream.current?.getTracks().forEach((track) => {
-        console.log(track)
-        track.stop()
+      if (track.kind === "video") {
+        // eslint-disable-next-line no-param-reassign
+        track.enabled = false;
       }
-    )
+    });
     localVideo.current!.srcObject = null
+    rtcConnectionRef.current = null
+    setCalling(false)
+    window.cancelAnimationFrame(animId)
   }
+
 
   /**
    * Initiate the call
    */
   const handleCall = async () => {
+    if (rtcConnectionRef.current === null) {
+      initalizeStreams()
+    }
+
+    setCalling(true)
+    
     // initialize firebase collections
     const callDoc = doc(collection(db, 'calls'))
     const offerCandidate = collection(callDoc, 'offerCandidates')
@@ -120,7 +157,14 @@ export default function Home() {
     })
   }
 
+  /** 
+   * Join existing call
+   */
   const handleJoin = async () => {
+    if (rtcConnectionRef.current === null) {
+      initalizeStreams()
+    }
+
     const callDoc = doc(db, 'calls', callInput)
     const answerCandidate = collection(callDoc, "answerCandidates")
 
@@ -155,26 +199,67 @@ export default function Home() {
 
     } 
     else {
-      // docSnap.data() will be undefined in this case
+      // callData.data() will be undefined in this case
       console.log("No such document!");
     }
     console.log(callDoc)
   }
 
+  /*
+  +-----------------------------+
+  |                             |
+  |  MediaPipe Gesture Control  |
+  |                             |
+  +-----------------------------+
+   */
+
+  const initializegestureDetector = async () => {
+    const vision = await FilesetResolver.forVisionTasks(
+      "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0/wasm"
+    );
+    gestureDetectorRef.current = await GestureRecognizer.createFromOptions(vision, {
+      baseOptions: {
+        modelAssetPath:
+          "https://storage.googleapis.com/mediapipe-models/gesture_recognizer/gesture_recognizer/float16/1/gesture_recognizer.task",
+        delegate: "GPU"
+      },
+      runningMode: "VIDEO"
+    });
+  };
+
+  const predict = () => {
+    let lastVideoTime = -1
+    const loop = () => {
+      let nowInMs = Date.now();
+      if (localVideo.current?.currentTime !== lastVideoTime) {
+        lastVideoTime = localVideo.current!.currentTime;
+        let results = gestureDetectorRef.current?.recognizeForVideo(localVideo.current!, nowInMs)
+        if (results?.handedness[0] && results?.gestures[0]) {
+          console.log(results.handedness[0][0].categoryName)
+          setGesture(results.gestures[0][0].categoryName)
+        }
+      }
+      const id = window.requestAnimationFrame(loop)
+      setAnimId(id)
+    }
+
+    loop()
+  }
 
   return (
     <Container size="lg">
-      <Group gap="lg" justify="space-evenly">
-        <video ref={localVideo} autoPlay muted/>
-        <video ref={remoteVideo} autoPlay/>
-      </Group>
+      <SimpleGrid cols={2}>
+        <AspectRatio ratio={1080 / 720} maw={300} mx="auto">
+          <video width="50%" height={300} ref={localVideo} autoPlay muted playsInline/>
+        </AspectRatio>
+        <AspectRatio ratio={1080 / 720} maw={300} mx="auto">
+          <video width="50%" ref={remoteVideo} autoPlay playsInline/>
+        </AspectRatio>
+      </SimpleGrid>
 
-      <Container size="sm">
+      <Container size="xs" >
         <Stack>
-          <Stack>
-            <Title order={3}>Turn Camera Off</Title>
-            <Button onClick={deactivateCamera}>Deactivate</Button>
-          </Stack>
+          <div>{gesture}</div>
           <Stack>
             <Title order={3}>Create Call</Title>
             <Button onClick={handleCall}>Call</Button>
@@ -182,7 +267,11 @@ export default function Home() {
           <Stack>
             <Title order={3}>Join Room</Title>
             <TextInput value={callInput} onInput={(e) => setCallInput(e.currentTarget.value)}></TextInput>
-            <Button onClick={handleJoin}>Join</Button>
+            <Button onClick={handleJoin} disabled={calling}>Join</Button>
+          </Stack>
+          <Stack>
+            <Title order={3}>Hang Up</Title>
+            <Button onClick={hangUp}>Deactivate</Button>
           </Stack>
         </Stack>
       </Container>
