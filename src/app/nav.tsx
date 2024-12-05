@@ -27,8 +27,8 @@ export default function Nav() {
       <UnstyledButton onClick={() => router.push('/search')}>
         <IconZoom style={{ width: rem(30), height: rem(30), color: checkPath("/search") }} />
       </UnstyledButton>
-      <UnstyledButton>
-        <IconUser style={{ width: rem(30), height: rem(30), color: checkPath("/user") }} />
+      <UnstyledButton onClick={() => router.push('/profile')} >
+        <IconUser style={{ width: rem(30), height: rem(30), color: checkPath("/profile") }} />
       </UnstyledButton>
       <UnstyledButton>
         <IconListCheck style={{ width: rem(30), height: rem(30), color: checkPath("/user") }} />

@@ -3,8 +3,6 @@ import React, { useState } from 'react';
 import app from '../../config';
 import { getAuth, signInWithEmailAndPassword} from "firebase/auth";
 import { useRouter } from 'next/navigation';
-import Logo from '../imgs/cookingcrew.png'
-import { redirect } from 'next/navigation';
 
 
 

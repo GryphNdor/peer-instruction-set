@@ -1,13 +1,16 @@
-'use client'
 import { getAuth, onAuthStateChanged } from "firebase/auth";
-import { getFirestore, doc, setDoc, getDoc } from "firebase/firestore";
+import firebase from "firebase/compat/app";
+import { getFirestore, doc, setDoc, getDoc , collection, query, where, getDocs} from "firebase/firestore";
 import app from './config';
+import { range } from "@mantine/hooks";
+
 
 const auth = getAuth(app);
 const db = getFirestore(app);
 
 export async function storeUserData(username:string, totalPoints: number, friends: string[]) {
   try {
+    
     // Get the authenticated user's ID
     const user = auth.currentUser;
 
@@ -34,18 +37,31 @@ export async function storeUserData(username:string, totalPoints: number, friend
   }
 }
 
-export function get_friends() {
-  onAuthStateChanged(auth, (user) => {
-    if (user) {
-      // User is signed in, see docs for a list of available properties
-      // https://firebase.google.com/docs/reference/js/auth.user
-      const uid = user.uid;
-      console.log(uid)
-      // ...
-    } else {
-      // User is signed out
-      // ...
-      console.log('none')
+//returns an object over the current user
+//access fields by profile["field name"]
+export async function getUserProfile(userId: any){
+  try {
+    const docReference = doc(db, "users", userId); // Get the document reference.
+    const docSnapshot = await getDoc(docReference); // Get a snapshot of the document.
+    const profile = docSnapshot.data();
+    return profile;
+  } catch (error) {
+    console.error("Error fetching user data:", error);
+  }
+
+};
+
+//returns the profiles of the user's friends
+export async function getFriends(friends: Array<string>){
+  const friend_profiles: any[] = [];
+    for (var i = 0; i < friends.length; i++){
+      var userRef = collection(db, 'users')
+      var friend = query(userRef, where("username", "==", friends[i]));
+      const userSnapshot = await getDocs(friend); 
+      userSnapshot.forEach((doc) => {
+        friend_profiles.push({ id: doc.id, ...doc.data() }); // Push document data into results array
+    });
     }
-  });
+    var friend1 = friend_profiles[0]
+    console.log(friend1['username'])
 }

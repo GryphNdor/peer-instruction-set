@@ -1,15 +1,12 @@
 'use client'
 import React, { useState } from 'react';
-import './login.css';
+import './signin.css';
 import app from '../../../config';
 import { getAuth, signInWithEmailAndPassword} from "firebase/auth";
 import { useRouter } from 'next/navigation';
 import Logo from '../imgs/cookingcrew.png'
-import { redirect } from 'next/navigation';
 
 
-
-// Initialize Firebase Auth if not already done
 const auth = getAuth(app);
 
 const Login: React.FC = () => {
@@ -24,7 +21,7 @@ const Login: React.FC = () => {
       // Signed in 
       const user = userCredential.user;
       console.log(user)
-      router.push('/search')
+      router.push('/profile')
       // ...
     })
     .catch((error) => {

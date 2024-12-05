@@ -1,0 +1,38 @@
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f9f9f9;
+    margin: 0;
+    padding: 0;
+  }
+  
+  h1, h2, h3, h4, p {
+    margin: 0;
+  }
+  
+  .flex {
+    display: flex;
+    align-items: center;
+  }  
+  .bg-white {
+    background-color: white;
+  }
+  
+  .rounded-lg {
+    border-radius: 0.5rem;
+  }
+  
+  .shadow-lg {
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  }
+  
+  .text-lg {
+    font-size: 1.125rem;
+  }
+  
+  .text-yellow-500 {
+    color: #f59e0b;
+  }
+  
+  .text-gray-600 {
+    color: #4b5563;
+  }
