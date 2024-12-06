@@ -1,20 +1,13 @@
 'use client'
 import db from "../config";
-import { Button, Container,  Stack, TextInput, Title, AspectRatio, SimpleGrid } from "@mantine/core";
+import { Button, Container,  Stack, TextInput, Title, AspectRatio, SimpleGrid, Accordion, CopyButton, Card, Group, ActionIcon, NativeSelect, Combobox, useCombobox, Timeline, Text, Center, Stepper, Alert, List } from "@mantine/core";
 import { useEffect, useRef, useState } from "react";
-import { collection, doc, setDoc, addDoc, onSnapshot, getDoc, updateDoc } from "firebase/firestore"
+import { collection, doc, setDoc, addDoc, onSnapshot, getDoc, updateDoc, getDocs } from "firebase/firestore"
 import { FilesetResolver, GestureRecognizer } from "@mediapipe/tasks-vision";
+import { IconCheck, IconGitCommit,  IconInfoCircle,  IconMicrophoneOff, IconNumber1Small, IconVideoOff } from "@tabler/icons-react"
+import SessionOptionComponent  from "./components/sessionOptions"
 
 export default function Home() {
-
-  const servers = {
-    iceServers: [
-      {
-        urls: [ 'stun:stun.l.google.com:19302', 'stun:stun2.l.google.com:19302' ] 
-      }
-    ],
-    iceCandidatePoolSize: 10
-  }
 
   const localStream = useRef<MediaStream | null>()
   const remoteStream = useRef<MediaStream | null>()
@@ -22,17 +15,19 @@ export default function Home() {
   const remoteVideo = useRef<HTMLVideoElement>(null)
   const rtcConnectionRef = useRef<RTCPeerConnection | null>(null);
   const gestureDetectorRef = useRef<GestureRecognizer | null>()
+  const gestureRef= useRef("")
+  const activePipsRef = useRef(0)
+
+  const peerConfigurationRef = useRef(null)
 
   const [callInput, setCallInput] = useState("")
-  const [gesture, setGesture] = useState("")
-  const [calling, setCalling] = useState(false)
+  const [isCalling, setIsCalling] = useState(false)
+  const [isOnCall, setIsOnCall] = useState(false)
   const [animId, setAnimId] = useState(0)
-
 
   useEffect(() => {
     // TODO:
-    // initializegestureDetector()
-    initalizeStreams()
+    initializegestureDetector()
   }, [])
 
   /*
@@ -43,8 +38,26 @@ export default function Home() {
   +-----------------------------+
   */
 
+  const fetchIceServerCredentials = async() => {
+    // let res = await fetch("https://gogura.metered.live/api/v1/turn/credential?secretKey=vbb_Y209ZQzmw-K5YkhWwoXtD_ecBfeOIruZTyakVkuhd-nV", {
+    //   method: 'POST',
+    //   headers: {
+    //     'Content-Type': 'application/json',
+    //   },
+    //   body: JSON.stringify({
+    //     "expiryInSeconds": 3600,
+    //   }),
+    // })
+    // const json = await res.json()
+    // console.log(json)
+    const response = await fetch(`https://gogura.metered.live/api/v1/turn/credentials?apiKey=a5f7c3b7cd5c98ac79c88856258b8afad570`);
+    const iceServers = await response.json();
+    //
+    return iceServers
+  }
+
   const initalizeStreams = async () => {
-    rtcConnectionRef.current = createPeerConnection()
+    rtcConnectionRef.current = await createPeerConnection()
     if (typeof window !== 'undefined') { 
       localStream.current = await navigator.mediaDevices.getUserMedia({
         video: true,
@@ -66,8 +79,10 @@ export default function Home() {
   }
 
 
-  const createPeerConnection = () => {
-    const pc = new RTCPeerConnection(servers)
+  const createPeerConnection = async () => {
+    const iceServers = await fetchIceServerCredentials()
+    console.log(iceServers[0], iceServers[1])
+    const pc = new RTCPeerConnection({iceServers: [iceServers[0], iceServers[1]]})
     return pc
   }
 
@@ -79,30 +94,16 @@ export default function Home() {
     })
   }
 
-
-  const hangUp = async () => {
-    localStream.current?.getTracks().forEach((track) => {
-      if (track.kind === "video") {
-        // eslint-disable-next-line no-param-reassign
-        track.enabled = false;
-      }
-    });
-    localVideo.current!.srcObject = null
-    rtcConnectionRef.current = null
-    setCalling(false)
-    window.cancelAnimationFrame(animId)
-  }
-
-
   /**
    * Initiate the call
    */
   const handleCall = async () => {
     if (rtcConnectionRef.current === null) {
-      initalizeStreams()
+      await initalizeStreams()
     }
 
-    setCalling(true)
+    setIsCalling(true)
+    setIsOnCall(true)
     
     // initialize firebase collections
     const callDoc = doc(collection(db, 'calls'))
@@ -152,6 +153,8 @@ export default function Home() {
         if (changes.type === "added") {
           const candidate = new RTCIceCandidate(changes.doc.data())
           rtcConnectionRef.current?.addIceCandidate(candidate)
+
+          console.log('ICE:',rtcConnectionRef.current)
         }
       })
     })
@@ -162,11 +165,14 @@ export default function Home() {
    */
   const handleJoin = async () => {
     if (rtcConnectionRef.current === null) {
-      initalizeStreams()
+      await initalizeStreams()
     }
+
+    setIsOnCall(true)
 
     const callDoc = doc(db, 'calls', callInput)
     const answerCandidate = collection(callDoc, "answerCandidates")
+    const offerCandidate = collection(callDoc, "offerCandidates")
 
     const handleIceCandidate = (event: RTCPeerConnectionIceEvent) => {
       event.candidate && addDoc(answerCandidate, event.candidate.toJSON())
@@ -197,12 +203,42 @@ export default function Home() {
         console.error(`Could not update: ${err}`)
       })
 
+      onSnapshot(offerCandidate, (doc) => {
+          doc.docChanges().forEach((changes) => {
+            console.log(changes);
+            if (changes.type === 'added') {
+              let candidate = new RTCIceCandidate(changes.doc.data());
+              rtcConnectionRef.current?.addIceCandidate(candidate);
+            }
+          });
+        });
+
     } 
     else {
       // callData.data() will be undefined in this case
       console.log("No such document!");
     }
     console.log(callDoc)
+  }
+
+  const handleHangUp = async () => {
+    localStream.current?.getTracks().forEach((track) => {
+      if (track.kind === "video") {
+        // eslint-disable-next-line no-param-reassign
+        track.enabled = false;
+      }
+      if (track.kind === "audio") {
+        // eslint-disable-next-line no-param-reassign
+        track.enabled = false;
+      }
+    });
+    localVideo.current!.srcObject = null
+    remoteVideo.current!.srcObject = null
+    rtcConnectionRef.current = null
+    setIsCalling(false)
+    setIsOnCall(false)
+    setCallInput("")
+    window.cancelAnimationFrame(animId)
   }
 
   /*
@@ -235,46 +271,134 @@ export default function Home() {
         lastVideoTime = localVideo.current!.currentTime;
         let results = gestureDetectorRef.current?.recognizeForVideo(localVideo.current!, nowInMs)
         if (results?.handedness[0] && results?.gestures[0]) {
-          console.log(results.handedness[0][0].categoryName)
-          setGesture(results.gestures[0][0].categoryName)
+          updateGesture(results.gestures[0][0].categoryName)
         }
       }
       const id = window.requestAnimationFrame(loop)
       setAnimId(id)
     }
-
     loop()
   }
 
+  const updateGesture = (newGesture: string) => {
+    if (gestureRef.current !== newGesture) {
+      if (newGesture === "None") {
+        return
+      }
+      if (gestureRef.current === "Closed_Fist" && newGesture === "Pointing_Up") {
+        activePipsRef.current += 1
+      }
+
+      if (gestureRef.current === "Closed_Fist" && newGesture === "Thumb_Down") {
+        if (activePipsRef.current > 0) {
+         activePipsRef.current -= 1 
+        }
+      }
+      gestureRef.current = newGesture
+      console.log(gestureRef.current, activePipsRef.current)
+    }
+
+  }
+
   return (
-    <Container size="lg">
+    <Container size="xs">
+      {!isOnCall 
+        ? (
+          <>
+            <Container size="xs" pb="lg" >
+              <Stack>
+                <Stack>
+                  <Title order={3}>Create Call</Title>
+                  <Button onClick={handleCall} disabled={isCalling}>Call</Button>
+                </Stack>
+                <Stack>
+                  <Title order={3}>Join Room</Title>
+                  <TextInput value={callInput} onChange={(e) => setCallInput(e.currentTarget.value)}></TextInput>
+                  <Button onClick={handleJoin} disabled={isCalling}>Join</Button>
+                </Stack>
+              </Stack>
+            </Container>
+            <SessionOptionComponent/>
+          </>
+        )
+        :
+        <>
+          <Group pb="md" pt="md">
+            <CopyButton value={callInput}>
+              {({ copied, copy }) => (
+                <Button color={copied ? 'teal' : 'blue'} onClick={copy} disabled={callInput === ""}>
+                  {copied ? 'Copied code' : 'Copy code'}
+                </Button>
+              )}
+            </CopyButton>
+            <ActionIcon size="lg" variant="filled" aria-label="VideoOff">
+              <IconVideoOff style={{ width: '70%', height: '70%' }} stroke={1.5} />
+            </ActionIcon>
+
+            <ActionIcon size="lg" variant="filled" aria-label="VideoOff">
+              <IconMicrophoneOff style={{ width: '70%', height: '70%' }} stroke={1.5} />
+            </ActionIcon>
+
+            <Button color="red" onClick={handleHangUp}>Hang Up</Button>
+          </Group>
+        </>
+
+      }
+
+      {/* NOTE: cannot put this inside the ternary bc of the refs */}
       <SimpleGrid cols={2}>
         <AspectRatio ratio={1080 / 720} maw={300} mx="auto">
-          <video width="50%" height={300} ref={localVideo} autoPlay muted playsInline/>
+          <video  ref={localVideo} autoPlay muted playsInline/>
         </AspectRatio>
         <AspectRatio ratio={1080 / 720} maw={300} mx="auto">
-          <video width="50%" ref={remoteVideo} autoPlay playsInline/>
+          <video  ref={remoteVideo} autoPlay playsInline/>
         </AspectRatio>
       </SimpleGrid>
 
-      <Container size="xs" >
-        <Stack>
-          <div>{gesture}</div>
-          <Stack>
-            <Title order={3}>Create Call</Title>
-            <Button onClick={handleCall}>Call</Button>
-          </Stack>
-          <Stack>
-            <Title order={3}>Join Room</Title>
-            <TextInput value={callInput} onInput={(e) => setCallInput(e.currentTarget.value)}></TextInput>
-            <Button onClick={handleJoin} disabled={calling}>Join</Button>
-          </Stack>
-          <Stack>
-            <Title order={3}>Hang Up</Title>
-            <Button onClick={hangUp}>Deactivate</Button>
-          </Stack>
-        </Stack>
-      </Container>
+
+
+      { isOnCall && (
+        <>
+          <Center>
+            <Stepper size="sm" active={activePipsRef.current} orientation="vertical"  styles={{
+              root: {display: 'flex', flexDirection: 'row', width: '100%'},
+              step: { flexDirection: 'row', alignItems: 'center' },
+              content: { diplay: 'flex', alignItems: 'center' , marginLeft:"15px", textAlign:'left'},
+            }}>
+              <Stepper.Step>
+                Heat a skillet over medium heat.
+              </Stepper.Step>
+              <Stepper.Step>
+                Butter one side of each slice of bread.
+              </Stepper.Step>
+              <Stepper.Step>
+                Place one slice, buttered side down, on the skillet and add the cheese.
+              </Stepper.Step>
+              <Stepper.Step>
+                Place the second slice of bread on top, buttered side up.
+              </Stepper.Step>
+              <Stepper.Step>
+                Cook for 2–4 minutes per side until the bread is golden brown and the cheese is melted.
+              </Stepper.Step>
+              <Stepper.Step>
+                Slice and serve hot.
+              </Stepper.Step>
+              <Stepper.Completed>
+                Yay done
+              </Stepper.Completed>
+            </Stepper>
+          </Center>
+
+      <Alert variant="light" color="orange" title="Gesture Controls" icon={<IconInfoCircle/>}>
+        <List>
+          <List.Item>Next Instruction:✊☝️</List.Item>
+          <List.Item>Previous Instruction:✊👎</List.Item>
+        </List>
+      </Alert>
+        </>
+      ) }
+
+
     </Container>
   );
 }

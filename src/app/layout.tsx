@@ -31,9 +31,11 @@ export default function RootLayout({
             <AppShellMain p="md" mb="xl">
               {children}
             </AppShellMain>
+            {/*
             <AppShellFooter p="sm">
               <Nav />
             </AppShellFooter>
+            */}
           </AppShell>
         </MantineProvider>
       </body>
