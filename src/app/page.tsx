@@ -300,6 +300,30 @@ export default function Home() {
 
   }
 
+  const getAllInstructions = async(recipeId:string) => {
+    try {
+      // Reference the 'instructions' subcollection dynamically
+      const instructionsCollectionRef = collection(db, "recipes", recipeId, "instructions");
+  
+      // Fetch all documents in the subcollection
+      const instructionsDocs = await getDocs(instructionsCollectionRef);
+  
+      // Extract and merge the 'values' arrays from each document
+      const instructions: any[] = [];
+      instructionsDocs.forEach(doc => {
+        const data = doc.data();
+        if (data.values) {
+          instructions.push(...data.values); // Add all items from the 'values' array
+        }
+      });
+  
+      return instructions;
+    } catch (error) {
+      console.error("Error fetching instructions:", error);
+      return [];
+    }
+  }
+
   return (
     <Container size="xs">
       {!isOnCall 
