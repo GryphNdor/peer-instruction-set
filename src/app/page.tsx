@@ -39,20 +39,19 @@ export default function Home() {
   */
 
   const fetchIceServerCredentials = async() => {
-    // let res = await fetch("https://gogura.metered.live/api/v1/turn/credential?secretKey=vbb_Y209ZQzmw-K5YkhWwoXtD_ecBfeOIruZTyakVkuhd-nV", {
-    //   method: 'POST',
-    //   headers: {
-    //     'Content-Type': 'application/json',
-    //   },
-    //   body: JSON.stringify({
-    //     "expiryInSeconds": 3600,
-    //   }),
-    // })
-    // const json = await res.json()
-    // console.log(json)
-    const response = await fetch(`https://gogura.metered.live/api/v1/turn/credentials?apiKey=a5f7c3b7cd5c98ac79c88856258b8afad570`);
+    let res = await fetch("https://gogura.metered.live/api/v1/turn/credential?secretKey=vbb_Y209ZQzmw-K5YkhWwoXtD_ecBfeOIruZTyakVkuhd-nV", {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        "expiryInSeconds": 3600,
+      }),
+    })
+    const json = await res.json()
+    console.log(json)
+    const response = await fetch(`https://gogura.metered.live/api/v1/turn/credentials?apiKey=${json.apiKey}`);
     const iceServers = await response.json();
-    //
     return iceServers
   }
 
