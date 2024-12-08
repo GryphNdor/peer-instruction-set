@@ -4,7 +4,6 @@ import '@mantine/core/styles.css';
 
 import { ColorSchemeScript, MantineProvider, AppShell, AppShellMain, AppShellFooter } from '@mantine/core';
 import Nav from './nav';
-import app from '../../config'
 import firebase from 'firebase/compat/app';
 
 export const metadata = {
