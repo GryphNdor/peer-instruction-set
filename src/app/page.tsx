@@ -1,11 +1,12 @@
 'use client'
 import db from "../config";
-import { Button, Container,  Stack, TextInput, Title, AspectRatio, SimpleGrid, Accordion, CopyButton, Card, Group, ActionIcon, NativeSelect, Combobox, useCombobox, Timeline, Text, Center, Stepper, Alert, List } from "@mantine/core";
+import { Button, Container,  Stack, SimpleGrid, TextInput, Title, AspectRatio, Accordion, CopyButton, Card, Group, ActionIcon, NativeSelect, Combobox, useCombobox, Timeline, Text, Center, Stepper, Alert, List } from "@mantine/core";
 import { useEffect, useRef, useState } from "react";
 import { collection, doc, setDoc, addDoc, onSnapshot, getDoc, updateDoc, getDocs } from "firebase/firestore"
 import { FilesetResolver, GestureRecognizer } from "@mediapipe/tasks-vision";
 import { IconCheck, IconGitCommit,  IconInfoCircle,  IconMicrophoneOff, IconNumber1Small, IconVideoOff } from "@tabler/icons-react"
 import SessionOptionComponent  from "./components/sessionOptions"
+import { warn } from "console";
 
 export default function Home() {
 
@@ -16,9 +17,10 @@ export default function Home() {
   const rtcConnectionRef = useRef<RTCPeerConnection | null>(null);
   const gestureDetectorRef = useRef<GestureRecognizer | null>()
   const gestureRef= useRef("")
+  const codeRef = useRef("")
+  const userRef = useRef("")
   const activePipsRef = useRef(0)
-
-  const peerConfigurationRef = useRef(null)
+  const otherPipsRef = useRef(0)
 
   const [callInput, setCallInput] = useState("")
   const [isCalling, setIsCalling] = useState(false)
@@ -26,7 +28,7 @@ export default function Home() {
   const [animId, setAnimId] = useState(0)
 
   useEffect(() => {
-    // TODO:
+    
     initializegestureDetector()
   }, [])
 
@@ -39,7 +41,7 @@ export default function Home() {
   */
 
   const fetchIceServerCredentials = async() => {
-    let res = await fetch("https://gogura.metered.live/api/v1/turn/credential?secretKey=vbb_Y209ZQzmw-K5YkhWwoXtD_ecBfeOIruZTyakVkuhd-nV", {
+    let res = await fetch(`https://gogura.metered.live/api/v1/turn/credential?secretKey=${process.env.apiKey}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -108,9 +110,14 @@ export default function Home() {
     const callDoc = doc(collection(db, 'calls'))
     const offerCandidate = collection(callDoc, 'offerCandidates')
     const answerCandidate = collection(callDoc, 'answerCandidates')
+    const session = doc(db, 'session', callDoc.id)
 
     // join code
     setCallInput(callDoc.id)
+    codeRef.current = callDoc.id
+    userRef.current = "caller"
+
+    setDoc(session, {"caller": 0})
 
     const handleIceCandidate = (event: RTCPeerConnectionIceEvent) => {
       event.candidate && addDoc(offerCandidate, event.candidate.toJSON())
@@ -157,6 +164,10 @@ export default function Home() {
         }
       })
     })
+
+    onSnapshot(session, (change) => {
+      otherPipsRef.current = change.data()?.joiner
+    })
   }
 
   /** 
@@ -169,9 +180,15 @@ export default function Home() {
 
     setIsOnCall(true)
 
+
     const callDoc = doc(db, 'calls', callInput)
     const answerCandidate = collection(callDoc, "answerCandidates")
     const offerCandidate = collection(callDoc, "offerCandidates")
+    const session = doc(db, 'session', callDoc.id)
+
+    updateDoc(session, {"joiner": 0})
+    codeRef.current = callInput
+    userRef.current = "joiner"
 
     const handleIceCandidate = (event: RTCPeerConnectionIceEvent) => {
       event.candidate && addDoc(answerCandidate, event.candidate.toJSON())
@@ -211,6 +228,10 @@ export default function Home() {
             }
           });
         });
+
+      onSnapshot(session, (change) => {
+        otherPipsRef.current = change.data()?.caller
+      })
 
     } 
     else {
@@ -286,11 +307,15 @@ export default function Home() {
       }
       if (gestureRef.current === "Closed_Fist" && newGesture === "Pointing_Up") {
         activePipsRef.current += 1
+        const session = doc(db, 'session', codeRef.current)
+        updateDoc(session, {[userRef.current]: activePipsRef.current})
       }
 
       if (gestureRef.current === "Closed_Fist" && newGesture === "Thumb_Down") {
         if (activePipsRef.current > 0) {
-         activePipsRef.current -= 1 
+          activePipsRef.current -= 1 
+          const session = doc(db, 'session', codeRef.current)
+          updateDoc(session, {[userRef.current]: activePipsRef.current})
         }
       }
       gestureRef.current = newGesture
@@ -346,6 +371,8 @@ export default function Home() {
         )
         :
         <>
+
+          <Text>Room Code: {callInput}</Text>
           <Group pb="md" pt="md">
             <CopyButton value={callInput}>
               {({ copied, copy }) => (
@@ -386,7 +413,7 @@ export default function Home() {
             <Stepper size="sm" active={activePipsRef.current} orientation="vertical"  styles={{
               root: {display: 'flex', flexDirection: 'row', width: '100%'},
               step: { flexDirection: 'row', alignItems: 'center' },
-              content: { diplay: 'flex', alignItems: 'center' , marginLeft:"15px", textAlign:'left'},
+              content: { marginLeft:"15px", textAlign:'left'},
             }}>
               <Stepper.Step>
                 Heat a skillet over medium heat.
@@ -410,6 +437,35 @@ export default function Home() {
                 Yay done
               </Stepper.Completed>
             </Stepper>
+
+            <Stepper size="sm" color="orange" active={otherPipsRef.current} orientation="vertical" styles={{
+              root: {display: 'flex', flexDirection: 'row' },
+              step: { flexDirection: 'row', alignItems: 'center' },
+              content: { display: 'none'},
+            }}>
+              <Stepper.Step>
+                Heat a skillet over medium heat.
+              </Stepper.Step>
+              <Stepper.Step>
+                Butter one side of each slice of bread.
+              </Stepper.Step>
+              <Stepper.Step>
+                Place one slice, buttered side down, on the skillet and add the cheese.
+              </Stepper.Step>
+              <Stepper.Step>
+                Place the second slice of bread on top, buttered side up.
+              </Stepper.Step>
+              <Stepper.Step>
+                Cook for 2–4 minutes per side until the bread is golden brown and the cheese is melted.
+              </Stepper.Step>
+              <Stepper.Step>
+                Slice and serve hot.
+              </Stepper.Step>
+              <Stepper.Completed>
+                Yay done
+              </Stepper.Completed>
+            </Stepper>
+
           </Center>
 
       <Alert variant="light" color="orange" title="Gesture Controls" icon={<IconInfoCircle/>}>
