@@ -1,0 +1,72 @@
+/* Login.css */
+
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+  }
+  
+  .login-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    background-color: #ff5733; /* Bright red color */
+  }
+  
+  .logo {
+    text-align: center;
+    color: #fff;
+    margin-bottom: 20px;
+    font-family: Courier, monospace;
+  }
+  
+  .logo .icon {
+    font-size: 3rem;
+  }
+  
+  h1 {
+    font-size: 4rem;
+    font-weight: bold;
+  }
+  
+  .login-form {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-width: 300px;
+  }
+  
+  .login-form input {
+    padding: 10px;
+    margin: 5px 0;
+    border: none;
+    border-radius: 4px;
+    font-size: 1rem;
+  }
+  
+  .login-form button {
+    padding: 10px;
+    margin-top: 10px;
+    background-color: #333;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    font-size: 1rem;
+    cursor: pointer;
+  }
+  
+  .login-form button:hover {
+    background-color: #555;
+  }
+
+  a:link {
+    color: white;
+    background-color: transparent;
+    text-decoration: none;
+  }
+
+  img.icon{
+    width: 200px
+  }
+  
